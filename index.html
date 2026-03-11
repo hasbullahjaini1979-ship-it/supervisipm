@@ -539,6 +539,13 @@ body {
     <button class="tab-btn"       onclick="showPage('pg-setting')"    id="tab-setting">⚙️ Pengaturan</button>
   </div>
 
+  <!-- SYNC STATUS BANNER -->
+  <div id="sync-banner" style="display:none;background:linear-gradient(90deg,#1e3a8a,#1d4ed8);color:white;border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:0.8rem;font-weight:600;display:flex;align-items:center;gap:10px">
+    <span style="width:10px;height:10px;border-radius:50%;background:white;animation:pulse-dot 1.4s infinite;flex-shrink:0"></span>
+    <span id="sync-banner-msg">Menyinkronkan data dari Google Sheets...</span>
+    <button onclick="document.getElementById('sync-banner').style.display='none'" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:1rem;line-height:1">✕</button>
+  </div>
+
   <!-- ========= PAGE: DASHBOARD ========= -->
   <div id="pg-dashboard" class="page">
 
@@ -941,15 +948,43 @@ body {
     <!-- Koneksi Google Sheets -->
     <div class="card">
       <p class="card-title">🔗 Koneksi Google Sheets</p>
+
+      <!-- Panduan Setup Apps Script -->
+      <div style="background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:800;color:#92400e;margin-bottom:8px;font-size:0.85rem">⚠️ PENTING: Update Google Apps Script</div>
+        <p style="font-size:0.8rem;color:#78350f;margin-bottom:10px;line-height:1.7">
+          Agar Data Guru, Data Sekolah, Kepala Sekolah, dan Logo tersimpan ke Google Sheets, Anda perlu mengganti kode Apps Script dengan versi terbaru.
+        </p>
+        <ol style="font-size:0.8rem;color:#78350f;line-height:2;padding-left:18px;margin-bottom:10px">
+          <li>Download file <b>google_apps_script.js</b> (ada di paket yang sama dengan file HTML ini)</li>
+          <li>Buka <a href="https://script.google.com" target="_blank" style="color:#1d4ed8;font-weight:700">script.google.com</a></li>
+          <li>Buka project yang terhubung ke Spreadsheet ID: <code style="background:#fff;padding:1px 5px;border-radius:3px;font-size:0.72rem">1l2PZa26Ycobu6f4LMDw_OehIs57xFCo33a-IjeHgahs</code></li>
+          <li>Hapus semua kode lama, paste kode baru dari file <b>google_apps_script.js</b></li>
+          <li>Klik <b>Deploy → Manage deployments → Edit → Deploy</b> (versi baru)</li>
+          <li>Klik tombol <b>"☁️ Sync Semua Data"</b> di bawah untuk mengirim data ke Sheets</li>
+        </ol>
+        <div style="font-size:0.78rem;color:#92400e;font-weight:700">
+          Setelah update script, Google Sheets akan otomatis memiliki 5 tab baru: DataSupervisi, DataGuru, DataSekolah, DataKepsek, DataLogo
+        </div>
+      </div>
+
       <div style="background:var(--c-primary-light);border:1.5px solid #bfdbfe;border-radius:8px;padding:14px;font-size:0.82rem;margin-bottom:12px">
-        <div style="font-weight:800;color:var(--c-primary);margin-bottom:8px">Apps Script URL</div>
-        <div style="font-size:0.72rem;word-break:break-all;background:#fff;padding:6px 8px;border-radius:5px;border:1px solid #bfdbfe;color:#1e40af;font-family:monospace">AKfycbx... (tertanam)</div>
-        <div style="font-weight:800;color:var(--c-primary);margin:8px 0 4px">Spreadsheet ID</div>
-        <div style="font-size:0.72rem;word-break:break-all;background:#fff;padding:6px 8px;border-radius:5px;border:1px solid #bfdbfe;color:#1e40af;font-family:monospace">1l2PZa26...gahs (tertanam)</div>
+        <div style="font-weight:800;color:var(--c-primary);margin-bottom:8px">Info Koneksi</div>
+        <div style="color:var(--c-muted);margin-bottom:2px;font-size:0.72rem">Apps Script URL:</div>
+        <div style="font-size:0.7rem;word-break:break-all;background:#fff;padding:6px 8px;border-radius:5px;border:1px solid #bfdbfe;color:#1e40af;font-family:monospace;margin-bottom:8px">AKfycbxKmRhnGnXjfs_HloJy8ODmTI4_QQn93JkKt1Cy62QT4PXaYa7ba7Rz0X4hCwhVScYssw/exec</div>
+        <div style="color:var(--c-muted);margin-bottom:2px;font-size:0.72rem">Spreadsheet ID:</div>
+        <div style="font-size:0.7rem;word-break:break-all;background:#fff;padding:6px 8px;border-radius:5px;border:1px solid #bfdbfe;color:#1e40af;font-family:monospace">1l2PZa26Ycobu6f4LMDw_OehIs57xFCo33a-IjeHgahs</div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-primary" onclick="testKoneksi()">🔌 Test Koneksi</button>
-        <button class="btn btn-success" onclick="syncAllData()">☁️ Sync Semua Data</button>
+        <button class="btn btn-primary" onclick="testKoneksi()">🔌 Diagnostic &amp; Test Koneksi</button>
+        <button class="btn btn-success" onclick="syncAllData()">☁️ Sync Semua Data ke Sheets</button>
+        <button class="btn btn-accent" onclick="document.getElementById('diag-box').style.display='none'">✕ Tutup Log</button>
+      </div>
+
+      <!-- DIAGNOSTIC BOX -->
+      <div id="diag-box" style="display:none;margin-top:14px;background:#0f172a;border-radius:10px;padding:16px">
+        <div style="color:#94a3b8;font-size:0.68rem;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">📋 Diagnostic Log</div>
+        <pre id="diag-output" style="color:#e2e8f0;font-family:monospace;font-size:0.72rem;line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto;margin:0"></pre>
       </div>
     </div>
 
@@ -1127,14 +1162,34 @@ const instrumen = [
       { label:'Ungkapan syukur & salam', info:'Guru mengakhiri sesi dengan ekspresi syukur dan salam.' }] }
 ];
 
+// ===================== LOADING OVERLAY =====================
+function showLoadingOverlay(msg) {
+  let el = document.getElementById('loading-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loading-overlay';
+    el.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,0.7);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px';
+    el.innerHTML = '<div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:#60a5fa;border-radius:50%;animation:spin 0.8s linear infinite"></div><div id="loading-msg" style="color:white;font-family:Plus Jakarta Sans,sans-serif;font-size:0.95rem;font-weight:600;text-align:center;padding:0 24px"></div>';
+    document.body.appendChild(el);
+  }
+  document.getElementById('loading-msg').textContent = msg || '⏳ Memuat...';
+  el.style.display = 'flex';
+}
+function hideLoadingOverlay() {
+  const el = document.getElementById('loading-overlay');
+  if (el) { el.style.opacity = '0'; el.style.transition = 'opacity 0.4s'; setTimeout(()=>el.remove(), 400); }
+}
+
 // ===================== INIT =====================
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   buildInstrumentTable();
+  showLoadingOverlay('⏳ Memuat data dari Google Sheets...');
+  await autoLoadFromSheets();
+  hideLoadingOverlay();
   loadLogo();
   loadDataIsian();
   renderDashboard();
   renderDB();
-  syncToSheets_attempt();
 });
 
 function buildInstrumentTable() {
@@ -1272,8 +1327,8 @@ window.saveDataSekolah = function() {
   setStore(KEY_SEKOLAH, data);
   updateHeaderSubtitle();
   renderDashboard();
-  sendDataToSheets({ type: 'sekolah', data });
-  toast('✅ Data sekolah berhasil disimpan!', 'success');
+  sendDataToSheets({ type: 'sync_all', sekolah: data, kepsek: getStore(KEY_KEPSEK)||{}, gurus: getStore(KEY_GURU)||[], logo: getStore(KEY_LOGO)||'', supervisi: getStore(KEY_SUPERVISI)||[] });
+  toast('✅ Data sekolah berhasil disimpan & dikirim ke Sheets!', 'success');
 };
 
 window.saveDataKepsek = function() {
@@ -1284,8 +1339,8 @@ window.saveDataKepsek = function() {
   });
   setStore(KEY_KEPSEK, data);
   renderDashboard();
-  sendDataToSheets({ type: 'kepsek', data });
-  toast('✅ Data kepala sekolah berhasil disimpan!', 'success');
+  sendDataToSheets({ type: 'sync_all', sekolah: getStore(KEY_SEKOLAH)||{}, kepsek: data, gurus: getStore(KEY_GURU)||[], logo: getStore(KEY_LOGO)||'', supervisi: getStore(KEY_SUPERVISI)||[] });
+  toast('✅ Data kepala sekolah berhasil disimpan & dikirim ke Sheets!', 'success');
 };
 
 function updateHeaderSubtitle() {
@@ -1326,7 +1381,7 @@ window.tambahGuru = function() {
   resetFormGuru();
   renderGuruTable();
   renderDashboard();
-  sendDataToSheets({ type: 'guru', data: gurus });
+  sendDataToSheets({ type: 'sync_all', sekolah: getStore(KEY_SEKOLAH)||{}, kepsek: getStore(KEY_KEPSEK)||{}, gurus, logo: getStore(KEY_LOGO)||'', supervisi: getStore(KEY_SUPERVISI)||[] });
 };
 
 window.resetFormGuru = function() {
@@ -1358,7 +1413,7 @@ window.hapusGuru = function(idx) {
   setStore(KEY_GURU, gurus);
   renderGuruTable();
   renderDashboard();
-  sendDataToSheets({ type: 'guru', data: gurus });
+  sendDataToSheets({ type: 'sync_all', sekolah: getStore(KEY_SEKOLAH)||{}, kepsek: getStore(KEY_KEPSEK)||{}, gurus, logo: getStore(KEY_LOGO)||'', supervisi: getStore(KEY_SUPERVISI)||[] });
   toast('🗑 Guru dihapus.', 'info');
 };
 
@@ -1502,7 +1557,7 @@ window.uploadLogo = function(e) {
   reader.onload = function(ev) {
     setStore(KEY_LOGO, ev.target.result);
     loadLogo();
-    sendDataToSheets({ type: 'logo', data: ev.target.result });
+    sendDataToSheets({ type: 'sync_all', sekolah: getStore(KEY_SEKOLAH)||{}, kepsek: getStore(KEY_KEPSEK)||{}, gurus: getStore(KEY_GURU)||[], logo: ev.target.result, supervisi: getStore(KEY_SUPERVISI)||[] });
     toast('✅ Logo berhasil disimpan!', 'success');
   };
   reader.readAsDataURL(file);
@@ -1943,23 +1998,25 @@ function mergeData(local, remote) {
 window.ambilDariSheets = async function() {
   const statusEl = document.getElementById('gs-status');
   statusEl.className = 'gs-status loading';
-  statusEl.innerHTML = '<span class="dot"></span> Mencoba koneksi...';
-  const remote = await spFetchFromSheets();
-  if (remote !== null) {
-    const local = getStore(KEY_SUPERVISI) || [];
-    const db = mergeData(local, remote);
-    setStore(KEY_SUPERVISI, db);
+  statusEl.innerHTML = '<span class="dot"></span> Mengambil semua data...';
+  showLoadingOverlay('⏳ Mengambil data dari Google Sheets...');
+  await autoLoadFromSheets();
+  hideLoadingOverlay();
+  loadLogo();
+  loadDataIsian();
+  renderDashboard();
+  const db = getStore(KEY_SUPERVISI) || [];
+  if (db.length > 0) {
     statusEl.className = 'gs-status ok';
     statusEl.innerHTML = `<span class="dot"></span> ${db.length} data (✅ tersinkron)`;
     renderDB();
-    renderDashboard();
-    toast(`✅ ${db.length} data berhasil diambil!`, 'success');
-    return;
+    toast(`✅ Data berhasil dimuat dari Google Sheets!`, 'success');
+  } else {
+    statusEl.className = 'gs-status err';
+    statusEl.innerHTML = '<span class="dot"></span> Koneksi gagal — gunakan import manual';
+    document.getElementById('import-panel').style.display = 'block';
+    toast('⚠️ Tidak ada data ditemukan di Sheets. Gunakan import manual.', 'info');
   }
-  statusEl.className = 'gs-status err';
-  statusEl.innerHTML = '<span class="dot"></span> Koneksi gagal — gunakan import manual';
-  document.getElementById('import-panel').style.display = 'block';
-  toast('⚠️ Koneksi otomatis gagal. Gunakan cara manual.', 'info');
 };
 
 window.tutupImport = function() { document.getElementById('import-panel').style.display = 'none'; document.getElementById('import-raw').value = ''; };
@@ -2000,20 +2057,99 @@ window.prosesImport = function() {
 
 // ===================== SETTING =====================
 window.testKoneksi = async function() {
-  try { await fetch(GS_URL + '?test=1', { method: 'GET', mode: 'no-cors' }); toast('✅ Koneksi ke Google Sheets berhasil!', 'success'); }
-  catch(e) { toast('❌ Gagal terhubung: ' + e.message, 'error'); }
+  const box = document.getElementById('diag-box');
+  const out  = document.getElementById('diag-output');
+  if (box) box.style.display = 'block';
+  if (out) out.textContent = '⏳ Menguji koneksi ke Google Sheets...';
+  toast('⏳ Menguji koneksi...', 'info');
+
+  let log = '';
+  const add = (s) => { log += s + '\n'; if (out) out.textContent = log; };
+
+  add('=== DIAGNOSTIC GOOGLE SHEETS ===');
+  add('URL: ' + GS_URL);
+  add('');
+
+  // Test 1: GET ?action=getAll
+  add('--- Test 1: GET ?action=getAll ---');
+  try {
+    const r = await Promise.race([
+      fetch(GS_URL + '?action=getAll', { method: 'GET', mode: 'cors' }),
+      new Promise((_,rj) => setTimeout(() => rj(new Error('Timeout 10s')), 10000))
+    ]);
+    add('HTTP Status: ' + r.status + ' ' + r.statusText);
+    const txt = await r.text();
+    add('Response (' + txt.length + ' chars):');
+    add(txt.substring(0, 500));
+    if (txt.startsWith('{')) {
+      try {
+        const j = JSON.parse(txt);
+        add('');
+        add('✅ JSON valid. Keys: ' + Object.keys(j).join(', '));
+        add('status: ' + j.status);
+        if (j.guru)      add('guru: ' + (j.guru.length || 0) + ' records');
+        if (j.sekolah)   add('sekolah: ' + JSON.stringify(j.sekolah).substring(0,80));
+        if (j.kepsek)    add('kepsek: ' + JSON.stringify(j.kepsek).substring(0,80));
+        if (j.supervisi) add('supervisi: ' + (j.supervisi.length || 0) + ' records');
+        if (j.logo)      add('logo: ' + (j.logo ? j.logo.substring(0,30)+'...' : 'kosong'));
+      } catch(pe) { add('❌ JSON parse error: ' + pe.message); }
+    } else {
+      add('⚠️ Response bukan JSON. Mungkin script lama / belum di-deploy ulang.');
+    }
+  } catch(e) {
+    add('❌ Error: ' + e.message);
+  }
+
+  add('');
+  add('--- Test 2: POST sync_all ---');
+  try {
+    const testPayload = {
+      type: 'sync_all',
+      sekolah: { nama_sekolah: '__TEST__', jenjang: 'SD', npsn: '', alamat: '', kabupaten: '', provinsi: '', website: '', tapel: '' },
+      kepsek:  { nama_kepsek: '__TEST__', nip_kepsek: '', sk_kepsek: '' },
+      gurus: [],
+      logo: '',
+      supervisi: []
+    };
+    await fetch(GS_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testPayload)
+    });
+    add('✅ POST dikirim (no-cors, tidak bisa baca respons)');
+    add('   → Cek Google Sheets apakah tab DataSekolah muncul dengan nilai __TEST__');
+  } catch(e) {
+    add('❌ POST Error: ' + e.message);
+  }
+
+  add('');
+  add('=== SELESAI ===');
+  add('Jika Test 1 mengembalikan respons lama (bukan JSON dengan key guru/sekolah),');
+  add('berarti Apps Script BELUM di-deploy ulang dengan kode baru.');
+  add('Ikuti langkah: Deploy → New Deployment → Web App → Execute as Me → Anyone.');
 };
 
 window.syncAllData = async function() {
-  const sekolah = getStore(KEY_SEKOLAH) || {};
-  const kepsek  = getStore(KEY_KEPSEK)  || {};
-  const gurus   = getStore(KEY_GURU)    || [];
-  const logo    = getStore(KEY_LOGO);
+  const sekolah   = getStore(KEY_SEKOLAH)   || {};
+  const kepsek    = getStore(KEY_KEPSEK)    || {};
+  const gurus     = getStore(KEY_GURU)      || [];
+  const logo      = getStore(KEY_LOGO)      || '';
   const supervisi = getStore(KEY_SUPERVISI) || [];
+
+  const btn = document.querySelector('[onclick="syncAllData()"]');
+  if (btn) { btn.innerHTML = '<span class="spinner"></span> Menyinkronkan...'; btn.disabled = true; }
+
   try {
-    await fetch(GS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'sync_all', sekolah, kepsek, gurus, logo, supervisi }) });
-    toast('✅ Semua data berhasil disinkronkan!', 'success');
-  } catch(e) { toast('❌ Gagal sync: ' + e.message, 'error'); }
+    await fetch(GS_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'sync_all', sekolah, kepsek, gurus, logo, supervisi })
+    });
+    toast('✅ Semua data berhasil disinkronkan ke Google Sheets!', 'success');
+  } catch(e) {
+    toast('❌ Gagal sync: ' + e.message, 'error');
+  }
+  if (btn) { btn.innerHTML = '☁️ Sync Semua Data'; btn.disabled = false; }
 };
 
 window.saveAllDataToSheets = window.syncAllData;
@@ -2053,15 +2189,89 @@ window.resetApp = function() {
   }
 };
 
-// ===================== HELPERS =====================
+// ===================== GOOGLE SHEETS — FULL SYNC ENGINE =====================
+
+// Kirim data ke Sheets (fire & forget)
 function sendDataToSheets(payload) {
   fetch(GS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {});
 }
 
-function syncToSheets_attempt() {
-  // On load, try to load additional config from sheets
-  const stored = getStore(KEY_SEKOLAH);
-  if (stored?.nama_sekolah) updateHeaderSubtitle();
+// Ambil SEMUA data dari Sheets saat pertama buka
+async function autoLoadFromSheets() {
+  try {
+    // Coba direct fetch dulu
+    const res = await Promise.race([
+      fetch(GS_URL + '?action=getAll', { method: 'GET', mode: 'cors' }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+    ]);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.status === 'ok') {
+        applyAllDataFromSheets(json);
+        return;
+      }
+    }
+  } catch(e) {}
+
+  // Coba via proxy
+  try {
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(GS_URL + '?action=getAll');
+    const res2 = await Promise.race([
+      fetch(proxyUrl),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+    ]);
+    if (res2.ok) {
+      const w = await res2.json();
+      const json = JSON.parse(w.contents);
+      if (json.status === 'ok') {
+        applyAllDataFromSheets(json);
+        return;
+      }
+    }
+  } catch(e) {}
+
+  // Gagal fetch — pakai localStorage saja
+  console.log('Auto-load dari Sheets gagal, menggunakan data lokal.');
+  const banner = document.getElementById('sync-banner');
+  if (banner) {
+    banner.style.background = 'linear-gradient(90deg,#7f1d1d,#dc2626)';
+    document.getElementById('sync-banner-msg').textContent = '⚠️ Tidak dapat terhubung ke Google Sheets. Data diambil dari penyimpanan lokal.';
+    banner.style.display = 'flex';
+    setTimeout(() => { if(banner) banner.style.display='none'; }, 5000);
+  }
+}
+
+function applyAllDataFromSheets(json) {
+  // Data supervisi (merge, hindari duplikat)
+  if (Array.isArray(json.supervisi) && json.supervisi.length > 0) {
+    const local = getStore(KEY_SUPERVISI) || [];
+    const merged = mergeData(local, json.supervisi);
+    setStore(KEY_SUPERVISI, merged);
+  }
+  // Data guru (timpa jika ada di Sheets)
+  if (Array.isArray(json.guru) && json.guru.length > 0) {
+    setStore(KEY_GURU, json.guru);
+  }
+  // Data sekolah
+  if (json.sekolah && json.sekolah.nama_sekolah) {
+    setStore(KEY_SEKOLAH, json.sekolah);
+  }
+  // Data kepsek
+  if (json.kepsek && json.kepsek.nama_kepsek) {
+    setStore(KEY_KEPSEK, json.kepsek);
+  }
+  // Logo
+  if (json.logo && json.logo.length > 100) {
+    setStore(KEY_LOGO, json.logo);
+  }
+  console.log('✅ Semua data berhasil dimuat dari Google Sheets');
+  const banner = document.getElementById('sync-banner');
+  if (banner) {
+    banner.style.background = 'linear-gradient(90deg,#064e3b,#059669)';
+    document.getElementById('sync-banner-msg').textContent = '✅ Data berhasil dimuat dari Google Sheets';
+    banner.style.display = 'flex';
+    setTimeout(() => { if(banner) banner.style.display='none'; }, 3500);
+  }
 }
 
 function fmtTgl(tgl) {
