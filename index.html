@@ -2014,8 +2014,7 @@ window.ambilDariSheets = async function() {
   } else {
     statusEl.className = 'gs-status err';
     statusEl.innerHTML = '<span class="dot"></span> Koneksi gagal — gunakan import manual';
-    document.getElementById('import-panel').style.display = 'block';
-    toast('⚠️ Tidak ada data ditemukan di Sheets. Gunakan import manual.', 'info');
+    // Sheets kosong — tidak perlu tampilkan pesan error
   }
 };
 
@@ -2230,15 +2229,8 @@ async function autoLoadFromSheets() {
     }
   } catch(e) {}
 
-  // Gagal fetch — pakai localStorage saja
+  // Gagal fetch — pakai localStorage saja, tidak tampilkan error
   console.log('Auto-load dari Sheets gagal, menggunakan data lokal.');
-  const banner = document.getElementById('sync-banner');
-  if (banner) {
-    banner.style.background = 'linear-gradient(90deg,#7f1d1d,#dc2626)';
-    document.getElementById('sync-banner-msg').textContent = '⚠️ Tidak dapat terhubung ke Google Sheets. Data diambil dari penyimpanan lokal.';
-    banner.style.display = 'flex';
-    setTimeout(() => { if(banner) banner.style.display='none'; }, 5000);
-  }
 }
 
 function applyAllDataFromSheets(json) {
