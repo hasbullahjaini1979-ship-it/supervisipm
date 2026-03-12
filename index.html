@@ -1045,7 +1045,7 @@ body {
 'use strict';
 
 // ===================== CONFIG =====================
-const GS_URL         = 'https://script.google.com/macros/s/AKfycbxn4wi8bFKmX5QgRJpjJYvePbyglITxusYqQp2MRyYdLN64w25SS4cTu_YW3HsAmXcUqA/exec';
+const GS_URL         = 'https://script.google.com/macros/s/AKfycbweZLp9CVLZOHbwyfh3Y8xkRGStQ_CLzeTHDfSnOEkwmcO7F70lLc-VlJ18g4LuTNHQxw/exec';
 const SPREADSHEET_ID = '1l2PZa26Ycobu6f4LMDw_OehIs57xFCo33a-IjeHgahs';
 
 // Keys
@@ -1901,24 +1901,42 @@ window.pdfFromDB = function(idx) {
 
 // ===================== GOOGLE SHEETS FETCH =====================
 async function spFetchFromSheets() {
-  try {
-    const res = await fetch(GS_URL, { method: 'GET', mode: 'cors' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.status === 'ok' && Array.isArray(json.data)) return json.data;
-    }
-  } catch(e) {}
+  const urls = [
+    GS_URL + '?action=getAllData&t=' + Date.now(),
+    GS_URL + '?t=' + Date.now()
+  ];
+  // Metode 1: Direct CORS
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { method: 'GET', mode: 'cors', signal: AbortSignal.timeout(12000) });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.status === 'ok') return json;
+      }
+    } catch(e) {}
+  }
+  // Metode 2: JSONP
   try {
     const data = await fetchJSONP();
     if (data) return data;
   } catch(e) {}
+  // Metode 3: Proxy allorigins
   try {
-    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(GS_URL);
-    const res3 = await fetch(proxyUrl);
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(GS_URL + '?action=getAllData&t=' + Date.now());
+    const res3 = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
     if (res3.ok) {
       const w = await res3.json();
       const j = JSON.parse(w.contents);
-      if (j.status === 'ok' && Array.isArray(j.data)) return j.data;
+      if (j.status === 'ok') return j;
+    }
+  } catch(e) {}
+  // Metode 4: Proxy corsproxy.io
+  try {
+    const proxy2 = 'https://corsproxy.io/?' + encodeURIComponent(GS_URL + '?action=getAllData&t=' + Date.now());
+    const res4 = await fetch(proxy2, { signal: AbortSignal.timeout(12000) });
+    if (res4.ok) {
+      const j = await res4.json();
+      if (j.status === 'ok') return j;
     }
   } catch(e) {}
   return null;
@@ -1927,10 +1945,10 @@ async function spFetchFromSheets() {
 function fetchJSONP() {
   return new Promise((resolve, reject) => {
     const cb = '_sp_cb_' + Date.now();
-    const timer = setTimeout(() => { delete window[cb]; const s = document.getElementById('_sp_jsonp'); if(s) s.remove(); reject(new Error('timeout')); }, 8000);
-    window[cb] = (json) => { clearTimeout(timer); delete window[cb]; const s = document.getElementById('_sp_jsonp'); if(s) s.remove(); (json?.status === 'ok' && Array.isArray(json.data)) ? resolve(json.data) : reject(new Error('invalid')); };
+    const timer = setTimeout(() => { delete window[cb]; const s = document.getElementById('_sp_jsonp'); if(s) s.remove(); reject(new Error('timeout')); }, 10000);
+    window[cb] = (json) => { clearTimeout(timer); delete window[cb]; const s = document.getElementById('_sp_jsonp'); if(s) s.remove(); (json?.status === 'ok') ? resolve(json) : reject(new Error('invalid')); };
     const s = document.createElement('script');
-    s.id = '_sp_jsonp'; s.src = GS_URL + '?callback=' + cb + '&t=' + Date.now();
+    s.id = '_sp_jsonp'; s.src = GS_URL + '?action=getAllData&callback=' + cb + '&t=' + Date.now();
     s.onerror = () => { clearTimeout(timer); delete window[cb]; s.remove(); reject(new Error('script error')); };
     document.head.appendChild(s);
   });
@@ -1944,26 +1962,46 @@ function mergeData(local, remote) {
   return merged.sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
 }
 
-window.ambilDariSheets = async function() {
+window.ambilDariSheets = async function(silent) {
   const statusEl = document.getElementById('gs-status');
   statusEl.className = 'gs-status loading';
-  statusEl.innerHTML = '<span class="dot"></span> Mencoba koneksi...';
-  const remote = await spFetchFromSheets();
-  if (remote !== null) {
+  statusEl.innerHTML = '<span class="dot"></span> Menghubungkan ke Google Sheets...';
+  const result = await spFetchFromSheets();
+  if (result !== null) {
+    let totalSupervisi = 0;
+    // Simpan data sekolah jika ada
+    if (result.sekolah && typeof result.sekolah === 'object' && result.sekolah.nama_sekolah) {
+      setStore(KEY_SEKOLAH, result.sekolah);
+      loadDataIsian();
+      updateHeaderSubtitle();
+    }
+    // Simpan data kepsek jika ada
+    if (result.kepsek && typeof result.kepsek === 'object') {
+      setStore(KEY_KEPSEK, result.kepsek);
+    }
+    // Simpan data guru jika ada
+    if (Array.isArray(result.guru) && result.guru.length) {
+      setStore(KEY_GURU, result.guru);
+    }
+    // Simpan data supervisi (merge dengan lokal)
+    const remoteSupervisi = Array.isArray(result.data) ? result.data : (Array.isArray(result.supervisi) ? result.supervisi : []);
     const local = getStore(KEY_SUPERVISI) || [];
-    const db = mergeData(local, remote);
+    const db = mergeData(local, remoteSupervisi);
     setStore(KEY_SUPERVISI, db);
+    totalSupervisi = db.length;
     statusEl.className = 'gs-status ok';
-    statusEl.innerHTML = `<span class="dot"></span> ${db.length} data (✅ tersinkron)`;
+    statusEl.innerHTML = `<span class="dot"></span> ${totalSupervisi} supervisi (✅ tersinkron)`;
     renderDB();
     renderDashboard();
-    toast(`✅ ${db.length} data berhasil diambil!`, 'success');
+    if (!silent) toast(`✅ Data berhasil diambil dari Google Sheets!`, 'success');
     return;
   }
   statusEl.className = 'gs-status err';
-  statusEl.innerHTML = '<span class="dot"></span> Koneksi gagal — gunakan import manual';
-  document.getElementById('import-panel').style.display = 'block';
-  toast('⚠️ Koneksi otomatis gagal. Gunakan cara manual.', 'info');
+  statusEl.innerHTML = '<span class="dot"></span> Koneksi gagal — periksa Google Apps Script';
+  if (!silent) {
+    document.getElementById('import-panel').style.display = 'block';
+    toast('⚠️ Gagal terhubung ke Google Sheets. Periksa GS_URL & izin deploy.', 'info');
+  }
 };
 
 window.tutupImport = function() { document.getElementById('import-panel').style.display = 'none'; document.getElementById('import-raw').value = ''; };
@@ -2014,19 +2052,73 @@ window.syncAllData = async function() {
   const gurus   = getStore(KEY_GURU)    || [];
   const logo    = getStore(KEY_LOGO);
   const supervisi = getStore(KEY_SUPERVISI) || [];
+  toast('⏳ Mengirim data ke Google Sheets...', 'info');
   try {
-    await fetch(GS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'sync_all', sekolah, kepsek, gurus, logo, supervisi }) });
-    toast('✅ Semua data berhasil disinkronkan!', 'success');
+    // Coba dengan cors dulu untuk bisa baca response
+    let berhasil = false;
+    try {
+      const res = await fetch(GS_URL, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'sync_all', sekolah, kepsek, gurus, logo, supervisi })
+      });
+      if (res.ok) { const j = await res.json(); berhasil = (j?.status === 'ok'); }
+    } catch(e) {
+      // CORS ditolak, fallback ke no-cors (tidak bisa baca response)
+      await fetch(GS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'sync_all', sekolah, kepsek, gurus, logo, supervisi }) });
+      berhasil = null; // tidak tahu hasilnya
+    }
+    if (berhasil === true) toast('✅ Semua data berhasil disinkronkan ke Google Sheets!', 'success');
+    else if (berhasil === null) toast('📤 Data dikirim ke Google Sheets. Cek spreadsheet untuk memastikan.', 'info');
+    else toast('⚠️ Sheets merespons tapi status tidak OK. Cek Google Apps Script.', 'error');
   } catch(e) { toast('❌ Gagal sync: ' + e.message, 'error'); }
 };
 
 window.saveAllDataToSheets = window.syncAllData;
 
 window.backup = function() {
-  const data = { supervisi: getStore(KEY_SUPERVISI)||[], guru: getStore(KEY_GURU)||[], sekolah: getStore(KEY_SEKOLAH)||{}, kepsek: getStore(KEY_KEPSEK)||{} };
+  const data = {
+    _versi: '2.0',
+    _tanggal: new Date().toISOString(),
+    supervisi: getStore(KEY_SUPERVISI)||[],
+    guru: getStore(KEY_GURU)||[],
+    sekolah: getStore(KEY_SEKOLAH)||{},
+    kepsek: getStore(KEY_KEPSEK)||{}
+  };
   const b = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(b); a.download = 'backup_supervisi.json'; a.click();
+  const tgl = new Date().toISOString().slice(0,10);
+  a.href = URL.createObjectURL(b); a.download = `backup_supervisi_${tgl}.json`; a.click();
+  toast('✅ Backup JSON berhasil diunduh!', 'success');
+};
+
+window.restoreBackup = function() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        let restored = 0;
+        if (Array.isArray(data.supervisi) && data.supervisi.length) {
+          const local = getStore(KEY_SUPERVISI) || [];
+          setStore(KEY_SUPERVISI, mergeData(local, data.supervisi));
+          restored += data.supervisi.length;
+        }
+        if (Array.isArray(data.guru) && data.guru.length) { setStore(KEY_GURU, data.guru); }
+        if (data.sekolah && Object.keys(data.sekolah).length) setStore(KEY_SEKOLAH, data.sekolah);
+        if (data.kepsek && Object.keys(data.kepsek).length) setStore(KEY_KEPSEK, data.kepsek);
+        renderDB(); renderDashboard();
+        toast(`✅ Restore berhasil! ${restored} data supervisi dipulihkan.`, 'success');
+      } catch(err) { toast('❌ File backup tidak valid: ' + err.message, 'error'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 };
 
 window.restore = function(e) {
@@ -2036,15 +2128,18 @@ window.restore = function(e) {
   r.onload = function(ev) {
     try {
       const data = JSON.parse(ev.target.result);
-      if (confirm('Restore data cadangan ini?')) {
-        if (data.supervisi) setStore(KEY_SUPERVISI, data.supervisi);
-        if (data.guru)      setStore(KEY_GURU, data.guru);
-        if (data.sekolah)   setStore(KEY_SEKOLAH, data.sekolah);
-        if (data.kepsek)    setStore(KEY_KEPSEK, data.kepsek);
-        loadDataIsian(); renderDashboard();
-        toast('✅ Restore berhasil!', 'success');
+      if (confirm('Restore data cadangan ini? Data supervisi yang belum ada akan ditambahkan (tidak menimpa data yang sudah ada).')) {
+        if (data.supervisi && Array.isArray(data.supervisi)) {
+          const local = getStore(KEY_SUPERVISI) || [];
+          setStore(KEY_SUPERVISI, mergeData(local, data.supervisi));
+        }
+        if (data.guru)    setStore(KEY_GURU, data.guru);
+        if (data.sekolah) setStore(KEY_SEKOLAH, data.sekolah);
+        if (data.kepsek)  setStore(KEY_KEPSEK, data.kepsek);
+        loadDataIsian(); renderDB(); renderDashboard();
+        toast('✅ Restore berhasil! Data supervisi dipulihkan.', 'success');
       }
-    } catch { toast('❌ File rusak!', 'error'); }
+    } catch { toast('❌ File rusak atau bukan format backup yang valid!', 'error'); }
   };
   r.readAsText(file);
 };
@@ -2063,9 +2158,12 @@ function sendDataToSheets(payload) {
 }
 
 function syncToSheets_attempt() {
-  // On load, try to load additional config from sheets
-  const stored = getStore(KEY_SEKOLAH);
-  if (stored?.nama_sekolah) updateHeaderSubtitle();
+  // Auto-ambil semua data dari Google Sheets saat aplikasi dibuka
+  const statusEl = document.getElementById('gs-status');
+  statusEl.className = 'gs-status loading';
+  statusEl.innerHTML = '<span class="dot"></span> Menghubungkan...';
+  // Tunda sedikit agar DOM siap sempurna
+  setTimeout(() => ambilDariSheets(true), 800);
 }
 
 function normalizeTgl(tgl) {
