@@ -1045,7 +1045,7 @@ body {
 'use strict';
 
 // ===================== CONFIG =====================
-const GS_URL         = 'https://script.google.com/macros/s/AKfycbweZLp9CVLZOHbwyfh3Y8xkRGStQ_CLzeTHDfSnOEkwmcO7F70lLc-VlJ18g4LuTNHQxw/exec';
+const GS_URL         = 'https://script.google.com/macros/s/AKfycbyclW6HuufEzPfsPc5AhnzY9GPETV3h-UXf-gqU2b-Betd7GYMvzXVZulp9PyhFega6_Q/exec';
 const SPREADSHEET_ID = '1l2PZa26Ycobu6f4LMDw_OehIs57xFCo33a-IjeHgahs';
 
 // Keys
@@ -1570,7 +1570,7 @@ window.simpan = async function() {
   btn.disabled = true;
 
   try {
-    await fetch(GS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'supervisi', data: payload }) });
+    await sendDataToSheetsAsync({ type: 'supervisi', data: payload });
     toast('✅ Berhasil disimpan ke Google Sheets & lokal!', 'success');
   } catch(e) {
     toast('💾 Disimpan lokal. Koneksi Sheets gagal.', 'info');
@@ -1877,11 +1877,7 @@ window.hapusRecord = async function(idx) {
 
   // Send delete to Google Sheets
   try {
-    await fetch(GS_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'delete', id: deleted.id })
-    });
+    await sendDataToSheetsAsync({ type: 'delete', id: deleted.id });
     toast('🗑 Data dihapus & dikirim ke Sheets.', 'info');
   } catch(e) {
     toast('🗑 Data dihapus (offline).', 'info');
@@ -2047,32 +2043,15 @@ window.testKoneksi = async function() {
 };
 
 window.syncAllData = async function() {
-  const sekolah = getStore(KEY_SEKOLAH) || {};
-  const kepsek  = getStore(KEY_KEPSEK)  || {};
-  const gurus   = getStore(KEY_GURU)    || [];
-  const logo    = getStore(KEY_LOGO);
+  const sekolah   = getStore(KEY_SEKOLAH)   || {};
+  const kepsek    = getStore(KEY_KEPSEK)    || {};
+  const gurus     = getStore(KEY_GURU)      || [];
   const supervisi = getStore(KEY_SUPERVISI) || [];
+  // logo tidak disertakan karena terlalu besar untuk form
   toast('⏳ Mengirim data ke Google Sheets...', 'info');
-  try {
-    // Coba dengan cors dulu untuk bisa baca response
-    let berhasil = false;
-    try {
-      const res = await fetch(GS_URL, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'sync_all', sekolah, kepsek, gurus, logo, supervisi })
-      });
-      if (res.ok) { const j = await res.json(); berhasil = (j?.status === 'ok'); }
-    } catch(e) {
-      // CORS ditolak, fallback ke no-cors (tidak bisa baca response)
-      await fetch(GS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'sync_all', sekolah, kepsek, gurus, logo, supervisi }) });
-      berhasil = null; // tidak tahu hasilnya
-    }
-    if (berhasil === true) toast('✅ Semua data berhasil disinkronkan ke Google Sheets!', 'success');
-    else if (berhasil === null) toast('📤 Data dikirim ke Google Sheets. Cek spreadsheet untuk memastikan.', 'info');
-    else toast('⚠️ Sheets merespons tapi status tidak OK. Cek Google Apps Script.', 'error');
-  } catch(e) { toast('❌ Gagal sync: ' + e.message, 'error'); }
+  const ok = await sendDataToSheetsAsync({ type: 'sync_all', sekolah, kepsek, gurus, supervisi });
+  if (ok) toast('✅ Data berhasil dikirim ke Google Sheets! Cek spreadsheet untuk konfirmasi.', 'success');
+  else toast('❌ Gagal mengirim ke Google Sheets. Periksa koneksi internet.', 'error');
 };
 
 window.saveAllDataToSheets = window.syncAllData;
@@ -2153,8 +2132,23 @@ window.resetApp = function() {
 };
 
 // ===================== HELPERS =====================
+// POST ke Google Apps Script menggunakan FormData agar bisa melewati CORS
+// GAS membaca data via: e.parameter.payload (bukan e.postData.contents)
 function sendDataToSheets(payload) {
-  fetch(GS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {});
+  try {
+    const form = new FormData();
+    form.append('payload', JSON.stringify(payload));
+    fetch(GS_URL, { method: 'POST', mode: 'no-cors', body: form }).catch(() => {});
+  } catch(e) {}
+}
+
+async function sendDataToSheetsAsync(payload) {
+  try {
+    const form = new FormData();
+    form.append('payload', JSON.stringify(payload));
+    await fetch(GS_URL, { method: 'POST', mode: 'no-cors', body: form });
+    return true;
+  } catch(e) { return false; }
 }
 
 function syncToSheets_attempt() {
