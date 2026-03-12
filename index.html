@@ -1045,8 +1045,8 @@ body {
 'use strict';
 
 // ===================== CONFIG =====================
-const GS_URL         = 'https://script.google.com/macros/s/AKfycbzIjfBzdIiU15RnFRjIhTXDZlwlTet3BDhvmFUvk2qqTnrqzAUNXNoUMXRE1jWbYl-gSw/exec';
-const SPREADSHEET_ID = '1GDVNiMeAqRg4R7wsI3Xk2idBBmyjPY66g6rLM2i3Vt4';
+const GS_URL         = 'https://script.google.com/macros/s/AKfycbyUg7EiOvyXYqdNsFuZZ_6pPJ-9cO8pPCwCw-vIJ-aHgClH7JQu5KTSJn8GHi40_MJ3FA/exec';
+const SPREADSHEET_ID = '1l2PZa26Ycobu6f4LMDw_OehIs57xFCo33a-IjeHgahs';
 
 // Keys
 const KEY_SUPERVISI  = 'SP_SUPERVISI_2026';
@@ -1569,12 +1569,9 @@ window.simpan = async function() {
   btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
   btn.disabled = true;
 
-  try {
-    await sendDataToSheetsAsync({ type: 'supervisi', data: payload });
-    toast('✅ Berhasil disimpan ke Google Sheets & lokal!', 'success');
-  } catch(e) {
-    toast('💾 Disimpan lokal. Koneksi Sheets gagal.', 'info');
-  }
+  const kirim = await gsPostAsync({ type: 'supervisi', data: payload });
+  if (kirim) toast('✅ Berhasil disimpan ke Google Sheets & lokal!', 'success');
+  else toast('💾 Disimpan lokal. Gagal kirim ke Sheets.', 'info');
 
   btn.innerHTML = '💾 Simpan ke Google Sheets';
   btn.disabled = false;
@@ -1875,13 +1872,9 @@ window.hapusRecord = async function(idx) {
   const deleted = db.splice(idx, 1)[0];
   setStore(KEY_SUPERVISI, db);
 
-  // Send delete to Google Sheets
-  try {
-    await sendDataToSheetsAsync({ type: 'delete', id: deleted.id });
-    toast('🗑 Data dihapus & dikirim ke Sheets.', 'info');
-  } catch(e) {
-    toast('🗑 Data dihapus (offline).', 'info');
-  }
+  // Kirim hapus ke Google Sheets
+  await gsPostAsync({ type: 'delete', id: deleted.id });
+  toast('🗑 Data dihapus.', 'info');
   renderDB();
   renderDashboard();
 };
@@ -1979,10 +1972,18 @@ window.ambilDariSheets = async function(silent) {
     if (Array.isArray(result.guru) && result.guru.length) {
       setStore(KEY_GURU, result.guru);
     }
-    // Simpan data supervisi (merge dengan lokal)
-    const remoteSupervisi = Array.isArray(result.data) ? result.data : (Array.isArray(result.supervisi) ? result.supervisi : []);
-    const local = getStore(KEY_SUPERVISI) || [];
-    const db = mergeData(local, remoteSupervisi);
+    // Data dari Sheets = sumber kebenaran utama
+    // Lokal hanya dipakai jika Sheets kosong (belum ada data)
+    const remoteSupervisi = Array.isArray(result.supervisi) ? result.supervisi :
+                            (Array.isArray(result.data) ? result.data : []);
+    let db;
+    if (remoteSupervisi.length > 0) {
+      // Sheets punya data → pakai Sheets, normalisasi tanggal
+      db = remoteSupervisi.map(r => ({ ...r, tgl: normalizeTgl(r.tgl || '') }));
+    } else {
+      // Sheets kosong → pertahankan lokal (mungkin belum pernah sync)
+      db = getStore(KEY_SUPERVISI) || [];
+    }
     setStore(KEY_SUPERVISI, db);
     totalSupervisi = db.length;
     statusEl.className = 'gs-status ok';
@@ -2047,11 +2048,13 @@ window.syncAllData = async function() {
   const kepsek    = getStore(KEY_KEPSEK)    || {};
   const gurus     = getStore(KEY_GURU)      || [];
   const supervisi = getStore(KEY_SUPERVISI) || [];
-  // logo tidak disertakan karena terlalu besar untuk form
+  if (!supervisi.length && !gurus.length) {
+    toast('⚠️ Tidak ada data untuk dikirim.', 'info'); return;
+  }
   toast('⏳ Mengirim data ke Google Sheets...', 'info');
-  const ok = await sendDataToSheetsAsync({ type: 'sync_all', sekolah, kepsek, gurus, supervisi });
-  if (ok) toast('✅ Data berhasil dikirim ke Google Sheets! Cek spreadsheet untuk konfirmasi.', 'success');
-  else toast('❌ Gagal mengirim ke Google Sheets. Periksa koneksi internet.', 'error');
+  const ok = await gsPostAsync({ type: 'sync_all', sekolah, kepsek, gurus, supervisi });
+  if (ok) toast('✅ Data berhasil dikirim! Buka Google Sheets untuk memastikan.', 'success');
+  else toast('❌ Gagal mengirim. Periksa koneksi internet.', 'error');
 };
 
 window.saveAllDataToSheets = window.syncAllData;
@@ -2132,24 +2135,25 @@ window.resetApp = function() {
 };
 
 // ===================== HELPERS =====================
-// POST ke Google Apps Script menggunakan FormData agar bisa melewati CORS
-// GAS membaca data via: e.parameter.payload (bukan e.postData.contents)
-function sendDataToSheets(payload) {
-  try {
+// Kirim ke GAS via FormData — satu-satunya cara yang bekerja dengan no-cors
+// GAS membaca via e.parameter.payload
+function gsPost(payload, onDone) {
+  const form = new FormData();
+  form.append('payload', JSON.stringify(payload));
+  fetch(GS_URL, { method: 'POST', mode: 'no-cors', body: form })
+    .then(() => { if (onDone) onDone(true); })
+    .catch(() => { if (onDone) onDone(false); });
+}
+async function gsPostAsync(payload) {
+  return new Promise((resolve) => {
     const form = new FormData();
     form.append('payload', JSON.stringify(payload));
-    fetch(GS_URL, { method: 'POST', mode: 'no-cors', body: form }).catch(() => {});
-  } catch(e) {}
+    fetch(GS_URL, { method: 'POST', mode: 'no-cors', body: form })
+      .then(() => resolve(true)).catch(() => resolve(false));
+  });
 }
-
-async function sendDataToSheetsAsync(payload) {
-  try {
-    const form = new FormData();
-    form.append('payload', JSON.stringify(payload));
-    await fetch(GS_URL, { method: 'POST', mode: 'no-cors', body: form });
-    return true;
-  } catch(e) { return false; }
-}
+// Alias lama agar tidak ada yang rusak
+function sendDataToSheets(payload) { gsPost(payload); }
 
 function syncToSheets_attempt() {
   // Auto-ambil semua data dari Google Sheets saat aplikasi dibuka
